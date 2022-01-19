@@ -137,6 +137,9 @@ test_plans:
     filters:
       - blocklist: *kselftest_defconfig_filter
 
+  chromeos-tast:
+    pattern: 'chromeos/chromeos-tast-template.jinja2'
+
   cros-ec:
     rootfs: debian_buster-cros-ec_ramdisk
 
@@ -1971,6 +1974,7 @@ test_configs:
       - baseline
       - baseline-cip-nfs
       - baseline-nfs
+      - chromeos-tast
       - cros-ec
       - igt-gpu-i915
       - kselftest-filesystems
