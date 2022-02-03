@@ -9,7 +9,7 @@
 actions:
   - deploy:
       timeout:
-        minutes: 30
+        minutes: {{ job_timeout }}
       to: tftp
       kernel:
         url: {{ kernel_url }}
@@ -21,15 +21,13 @@ actions:
       method: depthcharge
       commands: emmc
       prompts:
-        - 'sof-audio-pci'  # ToDo: make a parameter
+        - {{ prompt_command }}
 
   - test:
       timeout:
         minutes: 45
       docker:
-        image: kernelci/chromeos-tast  # ToDo: make a parameter
-        volumes:
-          - /tmp/octopus:/home/cros-tast/octopus  # ToDo: make a parameter
+        image: {{ docker_image }}
         wait:
           device: true
       results:
@@ -41,8 +39,7 @@ actions:
             name: docker-chromeos-tast
           run:
             steps:
-              # ToDo: make a parameter for the tarball URL
-              - 'cd /home/cros-tast; curl -s http://172.17.0.1/chromeos/autotest_server_package_octopus_R92_13981.0.0.tar.bz2 | tar xjf -'
+              - 'cd /home/cros-tast; curl -s {{cros_tast_tarball}} | tar xjf -'
               - 'chown -R cros-tast: /home/cros-tast'
               - 'ls -l /home/cros-tast'
               - 'ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /home/cros-tast/.ssh/id_rsa root@$(lava-target-ip) whoami'
