@@ -297,6 +297,12 @@ test_plans:
       job_timeout: '10'
       kselftest_collections: "seccomp"
 
+  kselftest-tpm2:
+    <<: *kselftest
+    params:
+      job_timeout: '10'
+      kselftest_collections: "tpm2"
+
   lc-compliance:
     rootfs: debian_bullseye-libcamera_nfs
     pattern: 'lc-compliance/{category}-{method}-{protocol}-{rootfs}-lc-compliance-template.jinja2'
