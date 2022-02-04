@@ -1945,6 +1945,7 @@ test_configs:
       - kselftest-lkdtm
       - kselftest-rtc
       - kselftest-seccomp
+      - kselftest-tpm2
       - ltp-crypto
       - ltp-fcntl-locktests
       - ltp-ipc
