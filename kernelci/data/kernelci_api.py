@@ -23,6 +23,9 @@ from cloudevents.http import from_json
 
 from kernelci.data import Database
 
+# Remove below line after successful testing
+import os
+
 
 class KernelCI_API(Database):
 
@@ -37,7 +40,9 @@ class KernelCI_API(Database):
         self._filters = {}
 
     def _make_url(self, path):
-        return urllib.parse.urljoin(self.config.url, path)
+        # return urllib.parse.urljoin(self.config.url, path)
+        # Remove below line after successful testing
+        return urllib.parse.urljoin(self.config['url'], path)
 
     def _get(self, path):
         url = self._make_url(path)
@@ -158,3 +163,25 @@ class KernelCI_API(Database):
 def get_db(config, token):
     """Get a KernelCI API database object"""
     return KernelCI_API(config, token)
+
+
+# Remove below block after successful testing
+if __name__ == "__main__":
+    api_token = os.getenv('API_TOKEN')
+    config = {
+        "db_type": "kernelci_api",
+        "url": "http://localhost:8001"}
+    db = get_db(config, api_token)
+    sub_id = db.subscribe_node_channel({"name": "checkout",
+                                        "status": None,
+                                        "op": "created",
+                                        "revision": {"tree": "mainline"}})
+    try:
+        while True:
+            node = db.receive_node(sub_id)
+            if node:
+                print("Node received:", node)
+    except KeyboardInterrupt as e:
+        print("Stopping.")
+    finally:
+        db.unsubscribe_node_channel(sub_id)
