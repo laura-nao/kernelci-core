@@ -95,6 +95,47 @@ class KernelCI_API(Database):
     def get_node_from_event(self, event):
         return self.get_node(event.data['id'])
 
+    def pubsub_event_filter(self, sub_id, event):
+        """Filter Pub/Sub events
+
+        Filter received Pub/Sub event using provided filter dictionary.
+        Return True if the event matches with the filter, otherwise False.
+        """
+        event_filter_status = True
+        filters = self._filters.get(sub_id)
+        if not filters:
+            return event_filter_status
+        for key, value in filters.items():
+            if key not in event.keys():
+                continue
+            if isinstance(value, dict):
+                for sub_key, sub_value in value.items():
+                    if sub_key not in event.get(key):
+                        continue
+                    if sub_value != event.get(key).get(sub_key):
+                        event_filter_status = False
+                        return event_filter_status
+            elif value != event[key]:
+                event_filter_status = False
+                break
+        return event_filter_status
+
+    def receive_node(self, sub_id):
+        """
+        Listen to all the events on 'node' channel and applies filter on it.
+        Return node if filter matches with the event, otherwise None.
+        """
+        path = '/'.join(['listen', str(sub_id)])
+        resp = self._get(path)
+        event = from_json(resp.json().get('data'))
+        node = self.get_node_from_event(event)
+        node['op'] = event.data['op']
+        event_filter_status = self.pubsub_event_filter(sub_id, node)
+
+        if event_filter_status is False:
+            return
+        return node
+
     def submit(self, data, verbose=False):
         obj_list = []
         for path, item in data.items():
