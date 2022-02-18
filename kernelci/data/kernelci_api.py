@@ -23,6 +23,9 @@ from cloudevents.http import from_json
 
 from kernelci.data import Database
 
+# Remove below line after successful testing
+import os
+
 
 class KernelCI_API(Database):
 
@@ -34,9 +37,12 @@ class KernelCI_API(Database):
             'Authorization': f'Bearer {self._token}',
             'Content-Type': 'application/json',
         }
+        self._filters = {}
 
     def _make_url(self, path):
-        return urllib.parse.urljoin(self.config.url, path)
+        # return urllib.parse.urljoin(self.config.url, path)
+        # Remove below line after successful testing
+        return urllib.parse.urljoin(self.config['url'], path)
 
     def _get(self, path):
         url = self._make_url(path)
@@ -60,7 +66,18 @@ class KernelCI_API(Database):
         resp = self._post(f'subscribe/{channel}')
         return json.loads(resp.text)['id']
 
+    def subscribe_node_channel(self, filters=None):
+        resp = self._post(f'subscribe/node')
+        sub_id = json.loads(resp.text)['id']
+        self._filters[sub_id] = filters
+        print("Subscribed with filters", self._filters)
+        return sub_id
+
     def unsubscribe(self, sub_id):
+        self._post(f'unsubscribe/{sub_id}')
+
+    def unsubscribe_node_channel(self, sub_id):
+        self._filters.pop(sub_id)
         self._post(f'unsubscribe/{sub_id}')
 
     def get_event(self, sub_id):
@@ -83,6 +100,49 @@ class KernelCI_API(Database):
     def get_node_from_event(self, event):
         return self.get_node(event.data['id'])
 
+    def pubsub_event_filter(self, sub_id, event):
+        """Filter Pub/Sub events
+
+        Filter received Pub/Sub event using provided filter dictionary.
+        Return True if the event matches with the filter, otherwise False.
+        """
+        event_filter_status = True
+        filters = self._filters.get(sub_id)
+        if not filters:
+            return event_filter_status
+        for key, value in filters.items():
+            if key not in event.keys():
+                continue
+            if isinstance(value, dict):
+                for sub_key, sub_value in value.items():
+                    if sub_key not in event.get(key):
+                        continue
+                    if sub_value != event.get(key).get(sub_key):
+                        event_filter_status = False
+                        return event_filter_status
+            elif value != event[key]:
+                event_filter_status = False
+                break
+        return event_filter_status
+
+    def receive_node(self, sub_id):
+        """
+        Listen to all the events on 'node' channel and applies filter on it.
+        Return node if filter matches with the event, otherwise None.
+        """
+        path = '/'.join(['listen', str(sub_id)])
+        resp = self._get(path)
+        event = from_json(resp.json().get('data'))
+        node = self.get_node_from_event(event)
+        node['op'] = event.data['op']
+        event_filter_status = self.pubsub_event_filter(sub_id, node)
+        # Remove below line after successful testing
+        print("event_filter_status", event_filter_status)
+
+        if event_filter_status is False:
+            return
+        return node
+
     def submit(self, data, verbose=False):
         obj_list = []
         for path, item in data.items():
@@ -103,3 +163,25 @@ class KernelCI_API(Database):
 def get_db(config, token):
     """Get a KernelCI API database object"""
     return KernelCI_API(config, token)
+
+
+# Remove below block after successful testing
+if __name__ == "__main__":
+    api_token = os.getenv('API_TOKEN')
+    config = {
+        "db_type": "kernelci_api",
+        "url": "http://localhost:8001"}
+    db = get_db(config, api_token)
+    sub_id = db.subscribe_node_channel({"name": "checkout",
+                                        "status": None,
+                                        "op": "created",
+                                        "revision": {"tree": "mainline"}})
+    try:
+        while True:
+            node = db.receive_node(sub_id)
+            if node:
+                print("Node received:", node)
+    except KeyboardInterrupt as e:
+        print("Stopping.")
+    finally:
+        db.unsubscribe_node_channel(sub_id)
