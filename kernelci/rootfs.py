@@ -30,13 +30,30 @@ class RootfsBuilder:
     def name(self):
         return self._name
 
-    def build(self, config, data_path, arch):
+    @property
+    def kci_path(self):
+        self_dir = os.path.dirname(__file__)
+        absself_dir = os.path.abspath(self_dir)
+        kci_path = os.path.split(absself_dir)[0]
+        return kci_path
+
+    def build(self, config, data_path, arch, output):
         raise NotImplementedError("build() needs to be implemented")
 
 
 class DebosBuilder(RootfsBuilder):
 
-    def build(self, config, data_path, arch):
+    def build(self, config, data_path, arch, output):
+        absoutput_dir = os.path.abspath(output)
+        absdata_path = os.path.abspath(data_path)
+        rootfs_yaml = os.path.join(absdata_path, 'rootfs.yaml')
+
+        try:
+            os.chdir(self.kci_path+"/temp/")
+        except OSError:
+            print("Cannot chdir to "+self.kci_path+"/temp/")
+            return False
+
         debos_params = {
             'architecture': arch,
             'suite': config.debian_release,
@@ -58,9 +75,10 @@ class DebosBuilder(RootfsBuilder):
                 for key, value in debos_params.items()
             )
         )
-        cmd = "cd {path} && debos --memory=4G {opts} rootfs.yaml".format(
-            path=data_path, opts=debos_opts
-        )
+        cmd = f"debos --memory=4G {debos_opts}"\
+            f" --artifactdir={absoutput_dir} {rootfs_yaml}"\
+
+        print(cmd)
         return shell_cmd(cmd, True)
 
 
@@ -70,12 +88,34 @@ class BuildrootBuilder(RootfsBuilder):
         super().__init__(*args, **kwargs)
         self._frag = 'baseline'  # ToDo: add to configuration
 
-    def build(self, config, data_path, arch):
-        cmd = 'cd {data_path} && ./configs/frags/build {arch} {frag}'.format(
-            data_path=data_path,
-            arch=arch,
-            frag=self._frag
-        )
+    def build(self, config, data_path, arch, output):
+        absoutput_dir = os.path.abspath(output)+f"/{self.name}/"+arch
+        if not os.path.isdir(absoutput_dir):
+            os.makedirs(absoutput_dir, exist_ok=True)
+
+        try:
+            os.chdir(self.kci_path+"/temp/")
+        except OSError:
+            # raise OSError ?
+            return False
+
+        cmd = 'git clone https://github.com/kernelci/buildroot'
+        ret = shell_cmd(cmd, True)
+        if not ret:
+            return False
+
+        try:
+            os.chdir('buildroot')
+        except OSError:
+            return False
+
+        cmd = f"./configs/frags/build {arch} {self._frag}"
+        ret = shell_cmd(cmd, True)
+        if not ret:
+            return False
+
+        os.chdir('..')
+        cmd = f"mv buildroot/output/images/* {absoutput_dir}"
         return shell_cmd(cmd, True)
 
 
@@ -85,13 +125,13 @@ ROOTFS_BUILDERS = {
 }
 
 
-def build(name, config, data_path, arch):
+def build(name, config, data_path, arch, output):
     """Build rootfs images.
 
     *name* is the rootfs config
     *config* contains rootfs-configs.yaml entries
-    *data_path* points to debos or buildroot location
     *arch* required architecture
+    *output* artifact output directory
     """
     builder_cls = ROOTFS_BUILDERS.get(config.rootfs_type)
     if builder_cls is None:
@@ -99,7 +139,7 @@ def build(name, config, data_path, arch):
             config.rootfs_type))
 
     builder = builder_cls(name)
-    return builder.build(config, data_path, arch)
+    return builder.build(config, data_path, arch, output)
 
 
 def upload(api, token, upload_path, input_dir):
