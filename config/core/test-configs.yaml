@@ -293,6 +293,12 @@ test_plans:
       job_timeout: '10'
       kselftest_collections: "seccomp"
 
+  kselftest-tpm2:
+    <<: *kselftest
+    params:
+      job_timeout: '10'
+      kselftest_collections: "tpm2"
+
   kselftest-vm:
     <<: *kselftest
     params:
@@ -1987,6 +1993,7 @@ test_configs:
       - kselftest-lkdtm
       - kselftest-rtc
       - kselftest-seccomp
+      - kselftest-tpm2
       - kselftest-vm
       - ltp-crypto
       - ltp-fcntl-locktests
