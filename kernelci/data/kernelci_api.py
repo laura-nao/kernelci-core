@@ -74,7 +74,10 @@ class KernelCI_API(Database):
 
     def get_event(self, sub_id):
         path = '/'.join(['listen', str(sub_id)])
-        resp = self._get(path)
+        try:
+            while resp := self._get(path, timeout=30)
+        except requests.exceptions.Timeout:
+            continue
         return from_json(resp.json().get('data'))
 
     def get_node(self, node_id):
