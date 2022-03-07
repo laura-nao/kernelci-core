@@ -1,0 +1,66 @@
+{% extends 'base/kernel-ci-base.jinja2' %}
+{% block main %}
+{{ super () }}
+{% endblock %}
+
+{% block actions %}
+{{ super () }}
+
+actions:
+- deploy:
+    images:
+      bios:
+        image_arg: -bios {bios}
+        url: http://storage.kernelci.org/images/uefi/edk2-stable202005/x86_64/OVMF.fd
+      rootfs:
+        image_arg: -drive format=raw,file={rootfs},id=lavatest2,if=none
+        url: http://storage.chromeos.kernelci.org/images/chromeos/chromiumos-amd64-generic/amd64/chromiumos_test_image.bin
+#        compression: gz
+    os: oe
+    timeout:
+      minutes: {{ job_timeout }}
+    to: tmpfs
+
+- boot:
+    method: qemu
+    media: tmpfs
+#    docker:
+#      image: kernelci/qemu
+#      binary: qemu-system-x86_64
+    timeout:
+      minutes: 5
+    prompts:
+    - "login:"
+
+- test:
+      timeout:
+        minutes: 45
+      docker:
+        image: {{ docker_image }}
+        volumes:
+          - /tmp/octopus:/home/cros-tast/octopus
+        wait:
+          device: true
+      results:
+          location: /home/cros-tast/lava
+      definitions:
+      - repository:
+          metadata:
+            format: Lava-Test Test Definition 1.0
+            name: docker-ping
+          run:
+            steps:
+              - uname -a
+              - pwd
+              - ls -l
+              - 'cd /home/cros-tast; curl -s {{cros_tast_tarball}} | tar xzf -'
+              - cp remote_test_runner /usr/bin/remote_test_runner
+              - while ! ping -c 1 -w 1 $(lava-target-ip); do sleep 1; done
+              - ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /home/cros-tast/.ssh/id_rsa root@$(lava-target-ip) whoami
+              - './tast-parser.py example.ARCFixture example.ManyParams.arc_state example.Param.dog example.Pass example.Fail'
+        from: inline
+        name: docker-ping-inline
+        path: inline/docker-ping.yaml
+
+
+{% endblock %}
