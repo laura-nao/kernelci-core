@@ -34,6 +34,7 @@ class KernelCI_API(Database):
             'Authorization': f'Bearer {self._token}',
             'Content-Type': 'application/json',
         }
+        self._filters = {}
 
     def _make_url(self, path):
         return urllib.parse.urljoin(self.config.url, path)
@@ -60,7 +61,15 @@ class KernelCI_API(Database):
         resp = self._post(f'subscribe/{channel}')
         return json.loads(resp.text)['id']
 
+    def subscribe_node_channel(self, filters=None):
+        resp = self._post(f'subscribe/node')
+        sub_id = json.loads(resp.text)['id']
+        self._filters[sub_id] = filters
+        return sub_id
+
     def unsubscribe(self, sub_id):
+        if sub_id in self._filters:
+            self._filters.pop(sub_id)
         self._post(f'unsubscribe/{sub_id}')
 
     def get_event(self, sub_id):
@@ -93,6 +102,44 @@ class KernelCI_API(Database):
     def get_root_node(self, node_id):
         resp = self._get('/'.join(['get_root_node', node_id]))
         return json.loads(resp.text)
+
+    def pubsub_event_filter(self, sub_id, event):
+        """Filter Pub/Sub events
+
+        Filter received Pub/Sub event using provided filter dictionary.
+        Return True if client has not provided any filter dictionary.
+        If filters are provided, return True if the event data matches with
+        the filter parameters, otherwise False.
+        """
+        filters = self._filters.get(sub_id)
+        if not filters:
+            return True
+        for key, value in filters.items():
+            if key not in event.keys():
+                continue
+            if isinstance(value, dict):
+                for sub_key, sub_value in value.items():
+                    if sub_key not in event.get(key):
+                        continue
+                    if sub_value != event.get(key).get(sub_key):
+                        return False
+            elif value != event[key]:
+                return False
+
+        return True
+
+    def receive_node(self, sub_id):
+        """
+        Listen to all the events on 'node' channel and apply filter on it.
+        Return node if event matches with the filter.
+        """
+        while True:
+            event = self.get_event(sub_id)
+            node = self.get_node_from_event(event)
+            if all(self.pubsub_event_filter(sub_id, obj) for obj in [
+                                                                node,
+                                                                event.data]):
+                return node
 
     def submit(self, data, verbose=False):
         obj_list = []
