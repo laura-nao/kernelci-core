@@ -673,6 +673,19 @@ test_plans:
     filters:
       - regex: {'tree': '(next|mainline|media)'}
 
+  v4l2-decoder-conformance-h264-frext:
+    rootfs: debian_bullseye-gst-fluster_nfs
+    pattern: 'v4l2-decoder-conformance/{category}-{method}-{protocol}-{rootfs}-v4l2-decoder-conformance-template.jinja2'
+    params:
+      job_timeout: '30'
+      testsuite: 'JVT-FR-EXT'
+      decoders:
+        - 'GStreamer-H.264-V4L2-Gst1.0'
+        - 'GStreamer-H.264-V4L2SL-Gst1.0'
+      videodec_parallel_jobs: '1'
+    filters:
+      - regex: {'tree': '(next|mainline|media)'}
+
   v4l2-decoder-conformance-h265:
     rootfs: debian_bullseye-gst-fluster_nfs
     pattern: 'v4l2-decoder-conformance/{category}-{method}-{protocol}-{rootfs}-v4l2-decoder-conformance-template.jinja2'
@@ -3232,6 +3245,7 @@ test_configs:
   - device_type: rk3399-gru-kevin
     test_plans:
       - v4l2-decoder-conformance-h264
+      - v4l2-decoder-conformance-h264-frext
       - v4l2-decoder-conformance-vp8
       - v4l2-decoder-conformance-vp9
     filters:
@@ -3269,6 +3283,7 @@ test_configs:
       - kselftest-alsa
       - kselftest-tpm2
       - v4l2-decoder-conformance-h264
+      - v4l2-decoder-conformance-h264-frext
       - v4l2-decoder-conformance-vp8
       - v4l2-decoder-conformance-vp9
 
@@ -3288,6 +3303,7 @@ test_configs:
       - kselftest-tpm2
       - usb
       - v4l2-decoder-conformance-h264
+      - v4l2-decoder-conformance-h264-frext
       - v4l2-decoder-conformance-vp8
       - v4l2-decoder-conformance-vp9
 
