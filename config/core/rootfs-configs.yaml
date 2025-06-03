@@ -349,6 +349,7 @@ rootfs_configs:
       - curl
       - dosfstools
       - gdb-minimal
+      - libaio-dev
       - libnuma-dev
       - ntfs-3g
     script: "scripts/bookworm-ltp.sh"
